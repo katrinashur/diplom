@@ -9,6 +9,16 @@ class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
         # и т.д. в файле design.py
         super().__init__()
         self.setupUi(self)  # Это нужно для инициализации нашего дизайна
+		self.start.clicked.connect(self.startExperiment)  # Выполнить функцию browse_folder
+        # при нажатии кнопки
+
+    def startExperiment(self):
+        cmd = 'RecordVideo.exe'
+        import subprocess
+        PIPE = subprocess.PIPE
+        p = subprocess.Popen(cmd, shell=True)   #запускаем запись видео
+        p.wait()
+        print("process finished")
 
 
 def main():
