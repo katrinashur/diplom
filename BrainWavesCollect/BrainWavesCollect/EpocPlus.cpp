@@ -31,7 +31,7 @@ int EpocPlus::connect() {
 				IEE_EmoEngineEventGetUserId(eEvent, &userID);
 
 				if (eventType == IEE_UserAdded) {
-					cout << "User added";
+					cout << "User added" << endl;;
 					IEE_FFTSetWindowingType(userID, IEE_HAMMING);
 					ready = true;
 				}
