@@ -8,7 +8,9 @@ import win32pipe, win32file, pywintypes
 import time
 from ImageProcessor import ImageProcessor
 from EmotionAnalyzer import EmotionAnalyzer
-
+from Recorder import Recorder
+from datetime import datetime
+import os
 
 class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
     def __init__(self):
@@ -18,7 +20,14 @@ class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
         self.stop.clicked.connect(self.stop_experiment)
         self.test_button.clicked.connect(self.process_data)
 
-        self.videoRecorder = VideoRecorder('')
+        self.recorder = Recorder('')
+        self.experiment_info = []
+        self.experiment_info.append(datetime.now().strftime("%Y-%m-%d.%H_%M_%S.%f"))
+        self.experiment_info.append( os.path.abspath(os.curdir) + '\\' + self.experiment_info[0])
+        print(self.experiment_info)
+        self.process_info = []
+        self.process_info.append(['RecordVideo.exe',  r'\\.\pipe\video_pipe'])
+        #self.process_info.append(['BrainWavesCollect.exe',  r'\\.\pipe\brain_pipe'])
         self.openDirectory.clicked.connect(self.open_folder)
         self.path = ''
 
@@ -27,19 +36,24 @@ class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
         self.experimentPath.setText(self.path)
 
     def start_experiment(self):
-        experiment_path = self.experimentPath.text()
-        self.videoRecorder.start_record()
-        print(experiment_path)
+        if len(self.experimenName.text()) !=0:
+            self.experiment_info[0] = self.experimenName.text()
+            self.experiment_info[1] = "/" + self.experimenName.text()
+        if len(self.experimentPath.text()) !=0:
+            self.experiment_info[1] = self.experimentPath.text() + "/" + experiment_info[0]
+
+        for i in range(len(self.process_info)):
+            self.recorder.start_record(self.process_info[i], self.experiment_info)
 
     def stop_experiment(self):
-        self.videoRecorder.stop_record()    #завершаем работу всех процессов
+        for i in range(len(self.process_info)):
+            self.recorder.stop_record()    #завершаем работу всех процессов
 
     def process_data(self):  #тут обрабатываем результаты эксперимента
         faces = ImageProcessor.find_faces("D:/Documents/DIPLOM/rep/gui_test/venv/exp/foto.jpg")
         emo_analyzer = EmotionAnalyzer()
         result = emo_analyzer.predict(faces[1][0])
         print(result)
-
 
 
 def main():
@@ -49,30 +63,30 @@ def main():
     app.exec_()  # и запускаем приложение
 
 
-class VideoRecorder():
-    def __init__(self, experiment_path):
-        self.experiment_path = experiment_path
-        self.proc = None
-        self.handle = None
-
-    def start_record(self):
-        cmd = 'RecordVideo.exe ' #+ self.experiment_path
-        import subprocess
-        PIPE = subprocess.PIPE
-        self.proc = subprocess.Popen(cmd, stdin=PIPE, stdout=PIPE)  # запускаем запись видео
-        time.sleep(3) #надо подождать пока там создается пайп или попробовать здесь другие флаги
-        self.handle = win32file.CreateFile(
-            r'\\.\pipe\demo_pipe',
-            win32file.GENERIC_WRITE,
-            0,
-            None,
-            win32file.OPEN_EXISTING,
-            0,
-            None)
-
-    def stop_record(self):
-        test_data = "0".encode("ascii")
-        win32file.WriteFile(self.handle, test_data)  # команда закончить работу!
+# class VideoRecorder():
+#     def __init__(self, experiment_path):
+#         self.experiment_path = experiment_path
+#         self.proc = None
+#         self.handle = None
+#
+#     def start_record(self):
+#         cmd = 'RecordVideo.exe ' #+ self.experiment_path
+#         import subprocess
+#         PIPE = subprocess.PIPE
+#         self.proc = subprocess.Popen(cmd, stdin=PIPE, stdout=PIPE)  # запускаем запись видео
+#         time.sleep(3) #надо подождать пока там создается пайп или попробовать здесь другие флаги
+#         self.handle = win32file.CreateFile(
+#             r'\\.\pipe\demo_pipe',
+#             win32file.GENERIC_WRITE,
+#             0,
+#             None,
+#             win32file.OPEN_EXISTING,
+#             0,
+#             None)
+#
+#     def stop_record(self):
+#         test_data = "0".encode("ascii")
+#         win32file.WriteFile(self.handle, test_data)  # команда закончить работу!
 
 
 if __name__ == '__main__':  # Если мы запускаем файл напрямую, а не импортируем

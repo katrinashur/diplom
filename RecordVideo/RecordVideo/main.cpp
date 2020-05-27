@@ -7,7 +7,7 @@ using namespace cv;
 
 
 
-int main(int, char**)
+int  main(int argc, char* argv[])
 {
 	HANDLE   hNamedPipe;
 	char     pchMessage[1] = {};   // дл€ сообщени€
@@ -17,6 +17,19 @@ int main(int, char**)
 
 	SYSTEMTIME st;
 	VideoCapture cap(0); // open the default camera
+
+	if (argc < 4)
+	{
+		cout << "Not enough arguments!" << endl;
+		return -1;
+	}
+
+	string experimentPath(argv[3]);
+	string experimentName(argv[2]);
+	char pipeName[50];
+	strcpy_s(pipeName, argv[1]);
+
+
 
 	if (!cap.isOpened())  // check if we succeeded
 	{
@@ -32,7 +45,7 @@ int main(int, char**)
 
 	// создаем именованный канал дл€ чтени€ и записи
 	hNamedPipe = CreateNamedPipe(
-		"\\\\.\\pipe\\demo_pipe",  // им€ канала
+		pipeName,  // им€ канала
 		PIPE_ACCESS_INBOUND,        // читаем из канала 
 		PIPE_TYPE_MESSAGE | PIPE_WAIT,   // синхронна€ передача сообщений
 		1,         // максимальное количество экземпл€ров канала 
@@ -73,6 +86,7 @@ int main(int, char**)
 	DWORD   dwBytesAvail = 0;    // дл€ количества доступных байтов
 	DWORD   dwBytesLeft = 0;    // дл€ количества оставшихс€ байтов
 
+	vector<string> photos;
 	while (true)
 	{
 		if (!PeekNamedPipe(
@@ -99,10 +113,18 @@ int main(int, char**)
 		cap >> frame; //-- захватываем очередной кадр
 		GetLocalTime(&st);
 
-		string filename = to_string(st.wYear) + "-" + to_string(st.wMonth) + "-" + to_string(st.wDay) + " " +
-			to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "_" + to_string(st.wMilliseconds) + ".jpeg";
-		imwrite(filename, frame); //--cохран€ем в файл
+		string filename = to_string(st.wYear) + "-" + to_string(st.wMonth) + "-" + to_string(st.wDay) + "." +
+			to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + to_string(st.wMilliseconds) + ".jpeg";
+		string photo = experimentPath + '\\' + filename;
+		imwrite(photo, frame); //--cохран€ем в файл
+		photos.push_back(photo);
+
 	}
+	string filePhotos = experimentPath + '\\' + experimentName + ".txt";
+	std::ofstream out(filePhotos);
+	for (auto photo : photos)
+		out << photo << endl;
+	out.close();
 
 	// закрываем дескриптор канала 
 	CloseHandle(hNamedPipe);
