@@ -47,7 +47,7 @@ using namespace std;
  }
 
 
- void writeDataInFile(vector <BrainWaves> dataEEG, string filename)
+ void writeDataInFile(vector <BrainWaves> dataEEG, vector<string> times, string filename)
 {
 	 std::ofstream out;          // поток для записи
 	 out.open(filename); // окрываем файл для записи
@@ -74,7 +74,7 @@ using namespace std;
 				 BrainWaves waves = dataEEG.at(i * channels.size() + j);
 				 out << waves.theta << "\t" << waves.alpha << "\t" << waves.low_beta << "\t" <<  waves.high_beta << "\t" << waves.gamma << "\t";
 			 }
-			 out << "\r\n";
+			 out << times.at(i) << "\r\n";
 		 }
 		 out.close();
 	 }
@@ -185,6 +185,7 @@ using namespace std;
 	 DWORD   dwBytesAvail = 0;    // для количества доступных байтов
 	 DWORD   dwBytesLeft = 0;    // для количества оставшихся байтов
 
+	 vector<string> times;
 	 Sleep(3000);
 	 while (true)
 	 //for (int i=0; i < 1000; i++)
@@ -210,9 +211,13 @@ using namespace std;
 			 break;
 		 }
 		 vector <BrainWaves> tmp = epoc->measuring();
+		 SYSTEMTIME st;
+		 GetLocalTime(&st);
+		 times.push_back(to_string(st.wYear) + "-" + to_string(st.wMonth) + "-" + to_string(st.wDay) + "." +
+			 to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + to_string(st.wMilliseconds));
 		 dataEEG.insert(dataEEG.end(), tmp.begin(), tmp.end()); //15 каналов, в каждом 5 ритмов
 	 }
-	 writeDataInFile(dataEEG, "nameExperiment.tsv");
+	 writeDataInFile(dataEEG, times, "nameExperiment.tsv");
 
 	 // закрываем дескриптор канала 
 	 CloseHandle(hNamedPipe);
