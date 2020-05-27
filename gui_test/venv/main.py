@@ -6,6 +6,8 @@ import form  # Это наш конвертированный файл диза�
 import subprocess
 import win32pipe, win32file, pywintypes
 import time
+from ImageProcessor import ImageProcessor
+from EmotionAnalyzer import EmotionAnalyzer
 
 
 class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
@@ -14,14 +16,15 @@ class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
         self.setupUi(self)  # Это нужно для инициализации нашего дизайна
         self.start.clicked.connect(self.start_experiment)
         self.stop.clicked.connect(self.stop_experiment)
+        self.test_button.clicked.connect(self.process_data)
 
         self.videoRecorder = VideoRecorder('')
         self.openDirectory.clicked.connect(self.open_folder)
-        self.dir = ''
+        self.path = ''
 
     def open_folder(self):
-        folder = str(QFileDialog.getExistingDirectory(self, "Open folder"))
-        self.experiment_path.setText(folder)
+        self.path = str(QFileDialog.getExistingDirectory(self, "Open folder"))
+        self.experimentPath.setText(self.path)
 
     def start_experiment(self):
         experiment_path = self.experimentPath.text()
@@ -29,7 +32,14 @@ class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
         print(experiment_path)
 
     def stop_experiment(self):
-        self.videoRecorder.stop_record()
+        self.videoRecorder.stop_record()    #завершаем работу всех процессов
+
+    def process_data(self):  #тут обрабатываем результаты эксперимента
+        faces = ImageProcessor.find_faces("D:/Documents/DIPLOM/rep/gui_test/venv/exp/foto.jpg")
+        emo_analyzer = EmotionAnalyzer()
+        result = emo_analyzer.predict(faces[1][0])
+        print(result)
+
 
 
 def main():
@@ -50,7 +60,7 @@ class VideoRecorder():
         import subprocess
         PIPE = subprocess.PIPE
         self.proc = subprocess.Popen(cmd, stdin=PIPE, stdout=PIPE)  # запускаем запись видео
-        time.sleep(3)
+        time.sleep(3) #надо подождать пока там создается пайп или попробовать здесь другие флаги
         self.handle = win32file.CreateFile(
             r'\\.\pipe\demo_pipe',
             win32file.GENERIC_WRITE,
