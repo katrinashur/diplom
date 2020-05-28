@@ -1,7 +1,9 @@
 import subprocess
 import win32pipe, win32file, pywintypes
+from pywintypes import com_error
 import time
 import os
+
 
 class Recorder():
 
@@ -14,19 +16,31 @@ class Recorder():
         args = process_info[0] + ' ' + process_info[1] + ' ' + experiment_info[0] + ' ' + experiment_info[1]
         print(args)
         PIPE = subprocess.PIPE
-        os.mkdir(experiment_info[1])
-        self.proc.append(subprocess.Popen(args, stdin=PIPE, stdout=PIPE))  # запускаем запись видео
-        time.sleep(3) #надо подождать пока там создается пайп или попробовать здесь другие флаги
-        self.handle.append(win32file.CreateFile(
-            process_info[1],
-            win32file.GENERIC_WRITE,
-            0,
-            None,
-            win32file.OPEN_EXISTING,
-            0,
-            None))
+        self.proc.append(subprocess.Popen(args))  # запускаем запись видео
+        print(self.proc)
+        time.sleep(3)
+        print(process_info[1])
+        try:
+            self.handle.append(win32file.CreateFile(
+                process_info[1],
+                win32file.GENERIC_WRITE,
+                0,
+                None,
+                win32file.OPEN_EXISTING,
+                0,
+                None))
+        except pywintypes.error as e:
+            if e.args[0] == 2:
+                print("no pipe")
+                time.sleep(1)
+            elif e.args[0] == 109:
+                print("broken pipe")
 
     def stop_record(self):
-        for i in range(len(self.proc)):
+        for i in range(len(self.handle)):
             test_data = "0".encode("ascii")
-            win32file.WriteFile(self.handle[i], test_data)  # команда закончить работу!
+            try:
+                win32file.WriteFile(self.handle[i], test_data)  # команда закончить работу!
+            except pywintypes.error as e:
+                if e.args[0] == 109:
+                    print("broken pipe")

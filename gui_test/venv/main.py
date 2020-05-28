@@ -26,8 +26,8 @@ class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
         self.experiment_info.append( os.path.abspath(os.curdir) + '\\' + self.experiment_info[0])
         print(self.experiment_info)
         self.process_info = []
+        self.process_info.append(['BrainWavesCollect.exe', r'\\.\pipe\brain_pipe'])
         self.process_info.append(['RecordVideo.exe',  r'\\.\pipe\video_pipe'])
-        #self.process_info.append(['BrainWavesCollect.exe',  r'\\.\pipe\brain_pipe'])
         self.openDirectory.clicked.connect(self.open_folder)
         self.path = ''
 
@@ -41,13 +41,17 @@ class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
             self.experiment_info[1] = "/" + self.experimenName.text()
         if len(self.experimentPath.text()) !=0:
             self.experiment_info[1] = self.experimentPath.text() + "/" + experiment_info[0]
-
+        os.mkdir(self.experiment_info[1])
         for i in range(len(self.process_info)):
             self.recorder.start_record(self.process_info[i], self.experiment_info)
 
     def stop_experiment(self):
-        for i in range(len(self.process_info)):
-            self.recorder.stop_record()    #завершаем работу всех процессов
+        self.recorder.stop_record()    #завершаем работу всех процессов
+
+        self.process_data()
+
+
+
 
     def process_data(self):  #тут обрабатываем результаты эксперимента
         faces = ImageProcessor.find_faces("D:/Documents/DIPLOM/rep/gui_test/venv/exp/foto.jpg")
@@ -61,32 +65,6 @@ def main():
     window = ExampleApp()  # Создаём объект класса ExampleApp
     window.show()  # Показываем окно
     app.exec_()  # и запускаем приложение
-
-
-# class VideoRecorder():
-#     def __init__(self, experiment_path):
-#         self.experiment_path = experiment_path
-#         self.proc = None
-#         self.handle = None
-#
-#     def start_record(self):
-#         cmd = 'RecordVideo.exe ' #+ self.experiment_path
-#         import subprocess
-#         PIPE = subprocess.PIPE
-#         self.proc = subprocess.Popen(cmd, stdin=PIPE, stdout=PIPE)  # запускаем запись видео
-#         time.sleep(3) #надо подождать пока там создается пайп или попробовать здесь другие флаги
-#         self.handle = win32file.CreateFile(
-#             r'\\.\pipe\demo_pipe',
-#             win32file.GENERIC_WRITE,
-#             0,
-#             None,
-#             win32file.OPEN_EXISTING,
-#             0,
-#             None)
-#
-#     def stop_record(self):
-#         test_data = "0".encode("ascii")
-#         win32file.WriteFile(self.handle, test_data)  # команда закончить работу!
 
 
 if __name__ == '__main__':  # Если мы запускаем файл напрямую, а не импортируем

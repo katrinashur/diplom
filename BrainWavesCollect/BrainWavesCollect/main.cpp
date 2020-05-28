@@ -74,73 +74,33 @@ using namespace std;
 				 BrainWaves waves = dataEEG.at(i * channels.size() + j);
 				 out << waves.theta << "\t" << waves.alpha << "\t" << waves.low_beta << "\t" <<  waves.high_beta << "\t" << waves.gamma << "\t";
 			 }
-			 out << times.at(i) << "\r\n";
+			 out << times.at(i) << "\n";
 		 }
 		 out.close();
 	 }
 }
 
- void writeChannels(string filename)
- {
-	 std::ofstream out;          // поток дл€ записи
-	 out.open(filename); // окрываем файл дл€ записи
-	 vector <string> channels = { "AF3", "F7", "F3", "FC5", "T7", "P7", "Pz", "O1", "O2", "P8", "T8", "FC6", "F4", "F8", "AF4" };
-	 vector <string> rythms = { "theta", "alpha", "lowBeta", "highBeta", "gamma" };
 
-	 if (out.is_open())
-	 {
-		 out << string("#\t");
-		 for (auto channel : channels)
-		 {
-			 for (auto rythm : rythms)
-			 {
-				 out << channel << "_" << rythm << "\t";
-			 }
-		 }
-		 out << string("\r\n");
-		 out.close();
-	 }
-
- }
-
- void writeBrainWaves(queue<vector <BrainWaves>> dataEEG, string filename)
- {
-	 int countValues = 0;
-	 std::ofstream out(filename);          // дозаписываем данные в файл
-	 while (true)
-	 {
-		 
-		 if (dataEEG.size() >= 1)
-		 {
-			 out << countValues << "\t";
-			 for (int i = 0; i < dataEEG.front().size(); i++)
-			 {
-				 vector <BrainWaves> tmp = dataEEG.front();
-				 BrainWaves waves = tmp.at(i);
-				 out << waves.theta << "\t" << waves.alpha << "\t" << waves.low_beta << "\t" << waves.high_beta << "\t" << waves.gamma << "\t";
-			 }
-			 out << "\r\n";
-			 countValues++;
-			 dataEEG.pop();
-		 }
-		 else
-			 Sleep(1000);
-		 
-	 }
-	 out.close();
- }
-
-
- int main()
+ int  main(int argc, char* argv[])
  {
 	 HANDLE   hNamedPipe;
-	 char     pchMessage[1] = {};   // дл€ сообщени€
-	 int    nMessageLength;   // длина сообщени€
-	 char  pchResponse[80];
-	 int responseCode = 0;
+
+	 if (argc < 4)
+	 {
+		 cout << "Not enough arguments!" << endl;
+		 return -1;
+	 }
+
+	 string experimentPath(argv[3]);
+	 string experimentName(argv[2]);
+	 char pipeName[50];
+	 strcpy_s(pipeName, argv[1]);
+	 
+	 
+
 	 // создаем именованный канал дл€ чтени€ и записи
 	 hNamedPipe = CreateNamedPipe(
-		 "\\\\.\\pipe\\brain_pipe",  // им€ канала
+		 pipeName,  // им€ канала
 		 PIPE_ACCESS_INBOUND,        // читаем из канала 
 		 PIPE_TYPE_MESSAGE | PIPE_WAIT,   // синхронна€ передача сообщений
 		 1,         // максимальное количество экземпл€ров канала 
@@ -185,10 +145,11 @@ using namespace std;
 	 DWORD   dwBytesAvail = 0;    // дл€ количества доступных байтов
 	 DWORD   dwBytesLeft = 0;    // дл€ количества оставшихс€ байтов
 
+	 char     pchMessage[1] = {};   // дл€ сообщени€
+
 	 vector<string> times;
 	 Sleep(3000);
 	 while (true)
-	 //for (int i=0; i < 1000; i++)
 	 {
 		 if (!PeekNamedPipe(
 			 hNamedPipe,
@@ -217,7 +178,8 @@ using namespace std;
 			 to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + to_string(st.wMilliseconds));
 		 dataEEG.insert(dataEEG.end(), tmp.begin(), tmp.end()); //15 каналов, в каждом 5 ритмов
 	 }
-	 writeDataInFile(dataEEG, times, "nameExperiment.tsv");
+	 string filepath = experimentPath + '\\' + experimentName + ".tsv";
+	 writeDataInFile(dataEEG, times, filepath);
 
 	 // закрываем дескриптор канала 
 	 CloseHandle(hNamedPipe);
