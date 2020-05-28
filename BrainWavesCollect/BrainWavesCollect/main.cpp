@@ -31,33 +31,16 @@ using namespace std;
 }
 
 
- void record(EpocPlus *epoc, vector <BrainWaves> &dataEEG)
- {
-	 Sleep(3000);
-	 for (int i =0; i < 10000; i++)
-	 {
-		 vector <BrainWaves> dataTmp = epoc->measuring();
-
-		 for (auto element : dataTmp)
-		 {
-			 dataEEG.push_back(element);
-		 }	 
-	 }
-	 
- }
-
-
  void writeDataInFile(vector <BrainWaves> dataEEG, vector<string> times, string filename)
 {
-	 std::ofstream out;          // поток для записи
-	 out.open(filename); // окрываем файл для записи
+	 std::ofstream out(filename); // окрываем файл для записи
 	 vector <string> channels = { "AF3", "F7", "F3", "FC5", "T7", "P7", "Pz", "O1", "O2", "P8", "T8", "FC6", "F4", "F8", "AF4" };
 	 vector <string> rythms = { "theta", "alpha", "lowBeta", "highBeta", "gamma" };
 
 
 	 if (out.is_open())
 	 {
-		 out << string("#\t");
+		 out << "#\t";
 		 for (auto channel : channels)
 		 {
 			 for (auto rythm : rythms)
@@ -65,7 +48,7 @@ using namespace std;
 				 out << channel << "_" << rythm << "\t";
 			 }
 		 }
-		 out << string("\r\n");
+		 out << "time" << "\n";
 
 		 for (int i = 0; i < dataEEG.size() / channels.size(); i++) 
 		 {
