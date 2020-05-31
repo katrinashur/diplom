@@ -120,7 +120,7 @@ int  main(int argc, char* argv[])
 		photos.push_back(photo);
 
 	}
-	string filePhotos = experimentPath + '\\' + experimentName + ".txt";
+	string filePhotos = experimentPath + '\\' + "photos_log" + ".txt";
 	std::ofstream out(filePhotos);
 	for (auto photo : photos)
 		out << photo << endl;

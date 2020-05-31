@@ -3,14 +3,10 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QAction, QFileDialog, QApplication)
 from PyQt5.QtGui import QIcon
 import form  # Это наш конвертированный файл дизайна
-import subprocess
-import win32pipe, win32file, pywintypes
-import time
-from ImageProcessor import ImageProcessor
-from EmotionAnalyzer import EmotionAnalyzer
-from Recorder import Recorder
-from datetime import datetime
-import os
+from StoreManager import DataManager
+
+from Experiment import Experiment
+
 
 class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
     def __init__(self):
@@ -19,45 +15,28 @@ class ExampleApp(QtWidgets.QMainWindow, form.Ui_MainWindow):
         self.start.clicked.connect(self.start_experiment)
         self.stop.clicked.connect(self.stop_experiment)
         self.test_button.clicked.connect(self.process_data)
-
-        self.recorder = Recorder('')
-        self.experiment_info = []
-        self.experiment_info.append(datetime.now().strftime("%Y-%m-%d.%H_%M_%S.%f"))
-        self.experiment_info.append( os.path.abspath(os.curdir) + '\\' + self.experiment_info[0])
-        print(self.experiment_info)
-        self.process_info = []
-        self.process_info.append(['BrainWavesCollect.exe', r'\\.\pipe\brain_pipe'])
-        self.process_info.append(['RecordVideo.exe',  r'\\.\pipe\video_pipe'])
         self.openDirectory.clicked.connect(self.open_folder)
-        self.path = ''
+        self.experiment = Experiment()
 
     def open_folder(self):
-        self.path = str(QFileDialog.getExistingDirectory(self, "Open folder"))
-        self.experimentPath.setText(self.path)
+        path = str(QFileDialog.getExistingDirectory(self, "Open folder"))
+        self.experimentPath.setText(path)
 
     def start_experiment(self):
-        if len(self.experimenName.text()) !=0:
-            self.experiment_info[0] = self.experimenName.text()
-            self.experiment_info[1] = "/" + self.experimenName.text()
-        if len(self.experimentPath.text()) !=0:
-            self.experiment_info[1] = self.experimentPath.text() + "/" + experiment_info[0]
-        os.mkdir(self.experiment_info[1])
-        for i in range(len(self.process_info)):
-            self.recorder.start_record(self.process_info[i], self.experiment_info)
+        if len(self.experimenName.text()) != 0:
+            self.experiment.set_name(self.experimenName.text())
+        if len(self.experimentPath.text()) != 0:
+            self.experiment.set_folder(self.experimentPath.text())
+
+        self.experiment.start_record()
+        # todo: ловить ошибки
 
     def stop_experiment(self):
-        self.recorder.stop_record()    #завершаем работу всех процессов
+        self.experiment.stop_record()
 
-        self.process_data()
+    def process_data(self):
+        self.experiment.save_results()
 
-
-
-
-    def process_data(self):  #тут обрабатываем результаты эксперимента
-        faces = ImageProcessor.find_faces("D:/Documents/DIPLOM/rep/gui_test/venv/exp/foto.jpg")
-        emo_analyzer = EmotionAnalyzer()
-        result = emo_analyzer.predict(faces[1][0])
-        print(result)
 
 
 def main():

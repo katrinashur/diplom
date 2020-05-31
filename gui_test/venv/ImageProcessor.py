@@ -12,7 +12,7 @@ class ImageProcessor(object):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=3, minSize=(30, 30))
-        faces_array = []
+        #faces_array = []
         vector_array = []
         print("[INFO] Found {0} Faces!".format(len(faces)))
 
@@ -22,7 +22,7 @@ class ImageProcessor(object):
 
             roi_color = image[y + int(0.2 * w):y + w, x + int(0.15 * h):x + int(h * 0.85)]
 
-            faces_array.append(cv2.imencode('.JPEG', copy.copy(roi_color))[1])
+            #faces_array.append(cv2.imencode('.JPEG', copy.copy(roi_color))[1])
             print("[INFO] Object found. Don't save locally.")
             dim = (48, 48)
             # resize image
@@ -30,4 +30,4 @@ class ImageProcessor(object):
             gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
             vector_array.append(gray)
 
-        return [faces_array, vector_array]
+        return vector_array

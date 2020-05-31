@@ -160,6 +160,7 @@ using namespace std;
 		 times.push_back(to_string(st.wYear) + "-" + to_string(st.wMonth) + "-" + to_string(st.wDay) + "." +
 			 to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + to_string(st.wMilliseconds));
 		 dataEEG.insert(dataEEG.end(), tmp.begin(), tmp.end()); //15 каналов, в каждом 5 ритмов
+		 Sleep(1000/90);
 	 }
 	 string filepath = experimentPath + '\\' + experimentName + ".tsv";
 	 writeDataInFile(dataEEG, times, filepath);
