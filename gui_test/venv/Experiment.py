@@ -4,7 +4,7 @@ from Recorder import Recorder
 from ImageProcessor import ImageProcessor
 from EmotionAnalyzer import EmotionAnalyzer
 from StoreManager import DataManager
-
+from ExperimentError import ExperimentError
 
 class Experiment:
     def __init__(self):
@@ -31,6 +31,7 @@ class Experiment:
     def stop_record(self):
         self.recorder.stop()
         self.save_results()
+        return True
 
     def save_results(self):
         self.prepare_brain_waves()
@@ -76,6 +77,7 @@ class Experiment:
         for line in brain_waves_strings:
             self.brain_waves.append(line.rsplit('\t', -1))
         self.brain_waves = self.brain_waves[1:]
+        return len(self.brain_waves) != 0
 
     def prepare_emotions(self):
         emo_analyzer = EmotionAnalyzer()
