@@ -112,9 +112,10 @@ int  main(int argc, char* argv[])
 
 		cap >> frame; //-- захватываем очередной кадр
 		GetLocalTime(&st);
-
+		string ms = to_string((double)st.wMilliseconds / 1000);
+		ms = ms.substr(2, 3);
 		string filename = to_string(st.wYear) + "-" + to_string(st.wMonth) + "-" + to_string(st.wDay) + "." +
-			to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + to_string(st.wMilliseconds) + ".jpeg";
+			to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + ms + ".jpeg";
 		string photo = experimentPath + '\\' + filename;
 		imwrite(photo, frame); //--cохраняем в файл
 		photos.push_back(photo);

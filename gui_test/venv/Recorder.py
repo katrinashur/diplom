@@ -3,16 +3,20 @@ import win32pipe, win32file, pywintypes
 from pywintypes import com_error
 import time
 import os
+from ProcessDao import ProcessDao
 
 
 class Recorder:
 
-    def __init__(self, experiment_path):
-        self.processes = [('BrainWavesCollect.exe', r'\\.\pipe\brain_pipe'), ('RecordVideo.exe',  r'\\.\pipe\video_pipe')]
+    def __init__(self):
+        self.processes = []
         self.proc = []
         self.handle = []
 
     def start(self, experiment_info):
+        self.processes = ProcessDao.get_processes()
+        self.handle.clear()
+        self.proc.clear()
         for i in range(len(self.processes)):
             args = self.processes[i][0] + ' ' + self.processes[i][1] + ' ' + experiment_info[0] + ' ' + experiment_info[1]
             print(args)
@@ -44,3 +48,7 @@ class Recorder:
             except pywintypes.error as e:
                 if e.args[0] == 109:
                     print("broken pipe")
+
+        self.handle.clear()
+        self.proc.clear()
+

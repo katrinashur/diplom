@@ -157,8 +157,10 @@ using namespace std;
 		 vector <BrainWaves> tmp = epoc->measuring();
 		 SYSTEMTIME st;
 		 GetLocalTime(&st);
+		 string ms = to_string((double)st.wMilliseconds / 1000);
+		 ms = ms.substr(2, 3);
 		 times.push_back(to_string(st.wYear) + "-" + to_string(st.wMonth) + "-" + to_string(st.wDay) + "." +
-			 to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + to_string(st.wMilliseconds));
+			 to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + ms);
 		 dataEEG.insert(dataEEG.end(), tmp.begin(), tmp.end()); //15 каналов, в каждом 5 ритмов
 		 Sleep(1000/90);
 	 }
