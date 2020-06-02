@@ -51,7 +51,7 @@ class ExperimentDao:
                 experiment.datetime = e['datetime']
                 experiment.is_completed = e['is_completed']
                 experiment.is_included = e['is_included']
-            return experiment
+                return experiment
 
         return None
 

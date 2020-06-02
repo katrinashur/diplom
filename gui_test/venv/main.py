@@ -1,9 +1,10 @@
-import sys  # sys нужен для передачи argv в QApplication
+import sys
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QAction, QFileDialog, QApplication,
                              QDialog, QTableWidgetItem, QHBoxLayout)
-from PyQt5.QtGui import QIcon
-import form  # Это наш конвертированный файл дизайна
+from PyQt5.QtGui import QRegExpValidator
+import json
+import form
 from StoreManager import DataManager
 from ExperimentService import ExperimentService
 from ExperimentDao import ExperimentDao
@@ -52,18 +53,20 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
         self.include.clicked.connect(self.include_in_dataset)
         #self.experiments.currentChanged(QModelIndex).connect(self.update_table)
         self.stop.hide()
-
         self.complete.hide()
         self.include.hide()
 
-        self.exp_in_process = True
+        #regexp_str = "[^\:\/\\\*\?\«\<\>\|\%\!\@\s]"
+        #self.experimentName.setValidator(QRegExpValidator(QtCore.QRegExp(regexp_str)))
+
+        self.exp_in_process = False
         self.res_in_process = False
 
     def update_name(self):
         self.experimentName.setText(datetime.now().strftime("%Y-%m-%d.%H_%M_%S.%f"))
 
     def closeEvent(self, e):
-        if self.exp_in_process and self.res_in_process:
+        if self.exp_in_process or self.res_in_process:
             msgBox = QtWidgets.QMessageBox()
             msgBox.setWindowTitle("Предупреждение")
             if self.exp_in_process:
@@ -77,6 +80,7 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
             msgBox.exec_()
 
             if msgBox.clickedButton() == yesBtn:
+                self.stop_experiment()
                 e.accept()
             elif msgBox.clickedButton() == noBtn:
                 e.ignore()
@@ -94,16 +98,16 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
         else:
             self.include.hide()
 
-
-
-
     def update_table(self):
         self.experiments.clear()
         labels = ['Название', 'Дата и время', 'Обработан', 'В выборке']
         self.experiments.setColumnCount(len(labels))
         self.experiments.setHorizontalHeaderLabels(labels)
-
-        exps = self.experiment_service.get_experiments()
+        try:
+            exps = self.experiment_service.get_experiments()
+        except (json.decoder.JSONDecodeError, ValueError):
+            self.error_action(ExperimentError.INCORRECT_DB)
+            return
         for e in exps:
             row = self.experiments.rowCount()
             self.experiments.setRowCount(row + 1)
@@ -122,40 +126,40 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
 
     def start_experiment(self):
         name = self.experimentName.text()
-
-        self.exp_in_process = True
-        self.stop.show()
-        self.start.hide()
-        self.process_data.hide()
-        self.experiment_service.start_record(name)
+        obj = self.experiment_service.get_experiment(name)
+        if obj is None:
+            self.exp_in_process = True
+            self.stop.show()
+            self.start.hide()
+            self.experiment_service.start_record(name)
+        else:
+            self.show_message_box('Ошибка', 'Эксперимент с таким именем существует. Выберите другое имя.')
         # todo: ловить ошибки
 
     def stop_experiment(self):
         self.start.show()
         self.stop.hide()
-        self.process_data.show()
         self.exp_in_process = False
         self.error_action(self.experiment_service.stop_record())
         self.error_action(self.update_table())
 
-    def processing_data(self):
-        name = self.experimentName.text()
-        self.error_action(self.experiment_service.process_data(name))
-        self.error_action(self.update_table())
-
     def post_processing_data(self):
+        self.res_in_process = True
         row = self.experiments.currentRow()
         name = self.experiments.item(row, 0).text()
         self.error_action(self.experiment_service.process_data(name))
         self.error_action(self.update_table())
         self.complete.hide()
+        self.res_in_process = False
 
     def include_in_dataset(self):
+        self.res_in_process = True
         row = self.experiments.currentRow()
         name = self.experiments.item(row, 0).text()
         self.error_action(self.experiment_service.include_in_dataset(name))
         self.error_action(self.update_table())
         self.include.hide()
+        self.res_in_process = False
 
     def delete_experiment(self):
         row = self.experiments.currentRow()
@@ -174,7 +178,7 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
         elif error == ExperimentError.NO_CONNECTION_TO_EPOC:
             self.show_message_box('Ошибка!', 'Не удается установить соединение с устройством EPOC+!')
         elif error == ExperimentError.INCORRECT_DB:
-            show_message_box('Ошибка!', 'Файл, хранящий эксперименты некорректен или не существует.'
+            self.show_message_box('Ошибка!', 'Файл, хранящий эксперименты некорректен или не существует.'
                                         '\n Проверьте DB/experiments.json')
 
     def show_message_box(self, title, message):

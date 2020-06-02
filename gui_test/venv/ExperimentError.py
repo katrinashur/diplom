@@ -9,3 +9,4 @@ class ExperimentError(enum.Enum):
     NO_CONNECTION_TO_EPOC = 4
     INCORRECT_DB = 5
     LOST_CONNECTION_RECORD = 6
+    EXISTING_NAME = 7
