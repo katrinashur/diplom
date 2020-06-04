@@ -10,3 +10,4 @@ class ExperimentError(enum.Enum):
     INCORRECT_DB = 5
     LOST_CONNECTION_RECORD = 6
     EXISTING_NAME = 7
+    PERMISSION_ERROR = 8

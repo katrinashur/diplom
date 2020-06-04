@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'form.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt5 UI code generator 5.14.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -69,8 +69,10 @@ class Ui_MainWindow(object):
         font = QtGui.QFont()
         font.setPointSize(9)
         self.label_2.setFont(font)
+        self.label_2.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.label_2.setText("")
         self.label_2.setTextFormat(QtCore.Qt.PlainText)
+        self.label_2.setAlignment(QtCore.Qt.AlignHCenter|QtCore.Qt.AlignTop)
         self.label_2.setObjectName("label_2")
         self.verticalLayout_2.addWidget(self.label_2)
         self.horizontalLayout_4.addLayout(self.verticalLayout_2)

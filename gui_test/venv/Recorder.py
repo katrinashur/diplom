@@ -9,12 +9,13 @@ from ProcessDao import ProcessDao
 class Recorder:
 
     def __init__(self):
+        self.processesDao = ProcessDao()
         self.processes = []
         self.proc = []
         self.handle = []
 
     def start(self, experiment_info):
-        self.processes = ProcessDao.get_processes()
+        self.processes = self.processesDao.get_processes()
         self.handle.clear()
         self.proc.clear()
         for i in range(len(self.processes)):

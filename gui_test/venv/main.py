@@ -5,35 +5,12 @@ from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QAction, QFileDialog, QAppl
 from PyQt5.QtGui import QRegExpValidator
 import json
 import form
-from StoreManager import DataManager
+import time
+import cv2
 from ExperimentService import ExperimentService
 from ExperimentDao import ExperimentDao
 from datetime import datetime, timedelta
 from ExperimentError import ExperimentError
-
-# class ErrorWindow(QtWidgets.QMessageBox):
-#     def __init__(self, parent=None):
-#         QtWidgets.QMessageBox.__init__(self, parent)
-#         self.setWindowTitle("Предупреждение")
-#         self.setText("Эксперимент не закончен, возможна частичная потеря результатов. Закрыть?")
-#         # msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-#         self.btnBox = QtWidgets.QDialogButtonBox(self)
-#         self.btnBox.addButton(QtWidgets.QPushButton("&Да"), QtWidgets.QDialogButtonBox.YesRole)
-#         self.btnBox.addButton(QtWidgets.QPushButton("&Нет"), QtWidgets.QDialogButtonBox.NoRole)
-#
-#         self.hbox = QtWidgets.QHBoxLayout()
-#         self.hbox.addWidget(self.btnBox)
-#         self.vbox = QtWidgets.QVBoxLayout()
-#         self.vbox.addStretch(1)
-#         self.vbox.addLayout(self.hbox)
-#
-#         self.setLayout(self.vbox)
-#
-#         self.setWindowTitle("Предупреждение")
-#         self.setText("Эксперимент не закончен, возможна частичная потеря результатов. Закрыть?")
-#         correctBtn = msgBox.addButton('Correct', QtWidgets.QMessageBox.YesRole)
-#         incorrectBtn = msgBox.addButton('Incorrect', QtWidgets.QMessageBox.NoRole)
-#         cancelBtn = msgBox.addButton('Cancel', QtWidgets.QMessageBox.RejectRole)
 
 
 class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
@@ -42,7 +19,7 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
         self.experiment_service = ExperimentService()
 
         self.setupUi(self)  # Это нужно для инициализации нашего дизайна
-        self.start.clicked.connect(self.start_experiment)
+        self.start.clicked.connect(self.check_before_experiment)
         self.stop.clicked.connect(self.stop_experiment)
         self.delete_2.clicked.connect(self.delete_experiment)
         self.experimentName.setText(datetime.now().strftime("%Y-%m-%d.%H_%M_%S.%f"))
@@ -99,16 +76,15 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
             self.include.hide()
 
     def update_table(self):
+        self.experiments.setRowCount(0)
         self.experiments.clear()
         labels = ['Название', 'Дата и время', 'Обработан', 'В выборке']
         self.experiments.setColumnCount(len(labels))
         self.experiments.setHorizontalHeaderLabels(labels)
-        try:
-            exps = self.experiment_service.get_experiments()
-        except (json.decoder.JSONDecodeError, ValueError):
-            self.error_action(ExperimentError.INCORRECT_DB)
-            return
-        for e in exps:
+
+        exps = self.experiment_service.get_experiments()
+        self.error_action(exps[1])
+        for e in exps[0]:
             row = self.experiments.rowCount()
             self.experiments.setRowCount(row + 1)
 
@@ -124,48 +100,69 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
             else:
                 self.experiments.setItem(row, 3, QTableWidgetItem('Нет'))
 
+    def check_before_experiment(self):
+        is_ready = True
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            self.show_message_box('Ошибка!', 'Не удается установить соединение с веб-камерой!')
+            is_ready = False
+        cap.release()
+        #todo: проверить epoc+
+        if is_ready:
+            self.start_experiment()
+
     def start_experiment(self):
         name = self.experimentName.text()
-        obj = self.experiment_service.get_experiment(name)
-        if obj is None:
+        exp = self.experiment_service.get_experiment(name)
+        self.error_action(exp[1])
+        if exp[0] is None and exp[1] == ExperimentError.OK:
             self.exp_in_process = True
             self.stop.show()
             self.start.hide()
             self.experiment_service.start_record(name)
-        else:
+            time.sleep(1)
+            self.label_2.setText('Эксперимент начался')
+        elif exp[0] is not None:
             self.show_message_box('Ошибка', 'Эксперимент с таким именем существует. Выберите другое имя.')
-        # todo: ловить ошибки
 
     def stop_experiment(self):
         self.start.show()
         self.stop.hide()
         self.exp_in_process = False
+        self.label_2.setText('Пожалуйста, подождите...')
         self.error_action(self.experiment_service.stop_record())
         self.error_action(self.update_table())
+        self.label_2.setText('')
 
     def post_processing_data(self):
-        self.res_in_process = True
+
         row = self.experiments.currentRow()
-        name = self.experiments.item(row, 0).text()
-        self.error_action(self.experiment_service.process_data(name))
-        self.error_action(self.update_table())
-        self.complete.hide()
-        self.res_in_process = False
+        if row != -1:
+            self.res_in_process = True
+            self.label_2.setText('Пожалуйста, подождите...')
+            name = self.experiments.item(row, 0).text()
+            self.error_action(self.experiment_service.process_data(name))
+            self.error_action(self.update_table())
+            self.complete.hide()
+            self.res_in_process = False
+            self.label_2.setText('')
 
     def include_in_dataset(self):
-        self.res_in_process = True
         row = self.experiments.currentRow()
-        name = self.experiments.item(row, 0).text()
-        self.error_action(self.experiment_service.include_in_dataset(name))
-        self.error_action(self.update_table())
-        self.include.hide()
-        self.res_in_process = False
+        if row != -1:
+            self.res_in_process = True
+            name = self.experiments.item(row, 0).text()
+            self.error_action(self.experiment_service.include_in_dataset(name))
+            self.error_action(self.update_table())
+            self.include.hide()
+            self.res_in_process = False
 
     def delete_experiment(self):
         row = self.experiments.currentRow()
-        name = self.experiments.item(row, 0).text()
-        self.error_action(self.experiment_service.delete_experiment(name))
-        self.error_action(self.update_table())
+        if row != -1:
+            name = self.experiments.item(row, 0).text()
+            self.error_action(self.experiment_service.delete_experiment(name))
+            self.error_action(self.update_table())
 
     def error_action(self, error):
         if error == ExperimentError.NO_BRAIN_WAVES:
@@ -178,8 +175,10 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
         elif error == ExperimentError.NO_CONNECTION_TO_EPOC:
             self.show_message_box('Ошибка!', 'Не удается установить соединение с устройством EPOC+!')
         elif error == ExperimentError.INCORRECT_DB:
-            self.show_message_box('Ошибка!', 'Файл, хранящий эксперименты некорректен или не существует.'
-                                        '\n Проверьте DB/experiments.json')
+            self.show_message_box('Ошибка!', 'Проверьте сохранность файлов базы данных и файлов экспериментов.')
+        elif error == ExperimentError.PERMISSION_ERROR:
+            self.show_message_box('Ошибка!', 'Не удалось удалить результаты эксперимента, '
+                                             '\nтак как файлы или папка кем-то используются')
 
     def show_message_box(self, title, message):
         msgBox = QtWidgets.QMessageBox(self)
@@ -190,10 +189,10 @@ class MainWindow(QtWidgets.QMainWindow, form.Ui_MainWindow):
 
 
 def main():
-    app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
-    window = MainWindow()  # Создаём объект класса ExampleApp
-    window.show()  # Показываем окно
-    app.exec_()  # и запускаем приложение
+    app = QtWidgets.QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    app.exec_()
 
 
 if __name__ == '__main__':  # Если мы запускаем файл напрямую, а не импортируем

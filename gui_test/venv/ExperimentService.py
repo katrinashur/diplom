@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import os
+import json
 from Recorder import Recorder
 from ImageProcessor import ImageProcessor
 from EmotionAnalyzer import EmotionAnalyzer
@@ -14,19 +15,12 @@ class ExperimentService:
         self.recorder = Recorder()
         self.experiment = None
         self.folder = 'DB'
+        self.experimentDao = ExperimentDao()
 
         self.emotions = []
         self.photos = []
         self.brain_waves = []
         self.res_dataset = []
-
-    # def set_name(self, name):
-    #     self.experiment.name = name
-    #     self.folder = self.folder.rsplit('\\', 1)[0] + '\\' + name
-
-    # def set_folder(self, folder):
-    #     pass
-    #     #self.folder = folder + '\\' + self.experiment.name
 
     def start_record(self, name):
         self.experiment = Experiment(name)
@@ -40,7 +34,7 @@ class ExperimentService:
     def stop_record(self):
         self.recorder.stop()
         try:
-            ExperimentDao.save_experiment(self.experiment)
+            self.experimentDao.save_experiment(self.experiment)
         except ValueError:
             return ExperimentError.INCORRECT_DB
         self.experiment = None
@@ -133,8 +127,8 @@ class ExperimentService:
 
     def process_data(self, name):
         # найдем в базе данных этот эксперимент
-        if self.get_experiment(name) is not None:
-            self.experiment = self.get_experiment(name)
+        if self.get_experiment(name)[0] is not None:
+            self.experiment = self.get_experiment(name)[0]
         else:
             return ExperimentError.INCORRECT_DB
 
@@ -152,51 +146,74 @@ class ExperimentService:
         # теперь обновим запись эксперимента в базе данных
         self.update_experiment(self.experiment)
 
-        return  ExperimentError.OK
-
+        return ExperimentError.OK
 
     def get_experiments(self):
-        return ExperimentDao.get_experiments_obj()
+        exps = []
+        try:
+            exps = self.experimentDao.get_experiments_obj()
+        except (json.decoder.JSONDecodeError, FileNotFoundError):
+            return [exps, ExperimentError.INCORRECT_DB]
+        return [exps, ExperimentError.OK]
 
     def get_experiment(self, name):
-        return ExperimentDao.get_experiment(name)
+        exp = None
+        try:
+            exp = self.experimentDao.get_experiment(name)
+        except (json.decoder.JSONDecodeError, FileNotFoundError):
+            return [exp, ExperimentError.INCORRECT_DB]
+        return [exp, ExperimentError.OK]
 
     def update_experiment(self, experiment):
-        ExperimentDao.update_experiment(experiment)
+        try:
+            self.experimentDao.update_experiment(experiment)
+        except (json.decoder.JSONDecodeError, FileNotFoundError):
+            return ExperimentError.INCORRECT_DB
+        return ExperimentError.OK
 
     def delete_experiment(self,  name):
         # сначала удаляем все из папки
-        photos = DataManager.read_file(self.folder + '\\' + name + '\\'
-                                       + 'photos_log.txt')
-        if os.path.exists(self.folder + '\\' + name + '\\' + 'photos_log.txt'):
-            os.remove(self.folder + '\\' + name + '\\' + 'photos_log.txt')
+        photos = []
+        try:
+            if os.path.exists(self.folder + '\\' + name + '\\' + 'photos_log.txt'):
+                photos = DataManager.read_file(self.folder + '\\' + name + '\\'
+                                               + 'photos_log.txt')
+                os.remove(self.folder + '\\' + name + '\\' + 'photos_log.txt')
 
-        for p in photos:
-            if os.path.exists(p):
-                os.remove(p)
+            for p in photos:
+                if os.path.exists(p):
+                    os.remove(p)
 
-        if os.path.exists(self.folder + '\\' + name + '\\' + name + '.tsv'):
-            os.remove(self.folder + '\\' + name + '\\' + name + '.tsv')
+            if os.path.exists(self.folder + '\\' + name + '\\' + name + '.tsv'):
+                os.remove(self.folder + '\\' + name + '\\' + name + '.tsv')
 
-        if os.path.exists(self.folder + '\\' + name + '\\' + 'res_' + name + '.tsv'):
-            os.remove(self.folder + '\\' + name + '\\' + 'res_' + name + '.tsv')
+            if os.path.exists(self.folder + '\\' + name + '\\' + 'res_' + name + '.tsv'):
+                os.remove(self.folder + '\\' + name + '\\' + 'res_' + name + '.tsv')
 
-        # потом удаляем саму папку
-        if os.path.exists(self.folder + '\\' + name):
-            os.rmdir(self.folder + '\\' + name)
+            # потом удаляем саму папку
+            if os.path.exists(self.folder + '\\' + name):
+                os.rmdir(self.folder + '\\' + name)
+        except PermissionError:
+            return ExperimentError.PERMISSION_ERROR
+        except FileNotFoundError:
+            return ExperimentError.INCORRECT_DB
 
         # потом удаляем из базы данных
-        ExperimentDao.delete_experiment(name)
+        try:
+            self.experimentDao.delete_experiment(name)
+        except (json.decoder.JSONDecodeError, FileNotFoundError):
+            return ExperimentError.INCORRECT_DB
+        return ExperimentError.OK
 
     def include_in_dataset(self, name):
-        self.experiment = ExperimentDao.get_experiment(name)
+        self.experiment = self.experimentDao.get_experiment(name)
         dataset = DataManager.read_file_str(self.folder + '\\' + self.experiment.name +
                               '\\' + 'res_' + self.experiment.name + '.tsv')
         dataset = dataset[1:]
         DataManager.add_to_file(self.folder + '\\' + 'result_dataset.tsv', dataset)
 
         self.experiment.is_included = 1
-        ExperimentDao.update_experiment(self.experiment)
+        self.experimentDao.update_experiment(self.experiment)
 
 
 
