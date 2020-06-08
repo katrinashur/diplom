@@ -10,7 +10,7 @@ class ExperimentDao:
 
     def get_experiments_obj(self):
         experiments = []
-        print (self.__path_db)
+        #print (self.__path_db)
         with open(self.__path_db, "r") as json_file:
             string = json.load(json_file)
             data = json.loads(string)

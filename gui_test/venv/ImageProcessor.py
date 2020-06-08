@@ -21,7 +21,7 @@ class ImageProcessor(object):
 
             roi_color = image[y + int(0.2 * w):y + w, x + int(0.15 * h):x + int(h * 0.85)]
 
-            print("[INFO] Object found. Don't save locally.")
+            print("[INFO] Object found.")
             dim = (48, 48)
             # resize image
             resized = cv2.resize(roi_color, dim, interpolation=cv2.INTER_AREA)

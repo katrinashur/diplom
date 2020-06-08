@@ -5,6 +5,7 @@
 #include <queue>
 #include <windows.h>
 #include <thread>
+#include <atlstr.h>
 using namespace std;
 
 
@@ -19,14 +20,14 @@ using namespace std;
 			return "Connection is settled.";
 		}
 	}
-	else {
-		if (epoc->disconnect() != EDK_OK) {
-			return "ERROR: Headset is not detected!";
-		}
-		else {
-			return "Disconnection";
-		}
-	}
+	//else {
+	//	if (epoc->disconnect() != EDK_OK) {
+	//		return "ERROR: Headset is not detected!";
+	//	}
+	//	else {
+	//		return "Disconnection";
+	//	}
+	//}
 
 }
 
@@ -104,7 +105,7 @@ using namespace std;
 	 }
 	
 	 // ждем, пока клиент свяжется с каналом
-	 cout << "The server is waiting for connection with a client." << endl;
+	 cout << "The brain waves collect is waiting for connection with a EEGToEmotionTool." << endl;
 	 if (!ConnectNamedPipe(
 		 hNamedPipe,    // дескриптор канала
 		 NULL      // связь синхронная
@@ -120,7 +121,16 @@ using namespace std;
 	 }
 
 	 EpocPlus *epoc = new EpocPlus(1);
-	 cout << connectEpoc(epoc) << endl;
+	 if (epoc->connected() == false)
+	 {
+		 if (epoc->connect() != EDK_OK) 
+		 {
+			 cout << "ERROR: Headset is not detected!" << endl;
+			 CloseHandle(hNamedPipe);
+			 return -1;
+		 }
+
+	 }
 
 	 vector <BrainWaves> dataEEG;
 
@@ -134,33 +144,52 @@ using namespace std;
 	 Sleep(3000);
 	 while (true)
 	 {
-		 if (!PeekNamedPipe(
+		 if (PeekNamedPipe(
 			 hNamedPipe,
 			 pchMessage,
 			 sizeof(pchMessage),
 			 &dwBytesRead,
 			 &dwBytesAvail,
 			 &dwBytesLeft)
-			 && pchMessage[0] != 0)
+			 && pchMessage[0] != '\0')
 		 {
-			 cerr << "Data reading from the named pipe failed." << endl
-				 << "The last error code: " << GetLastError() << endl;
-			 CloseHandle(hNamedPipe);
-		 }
-		 else if (pchMessage[0] != '\0') //команда закончить работу
-		 {
-			 // выводим полученное от клиента сообщение на консоль
-			 cout << "The server received the message from a client: " << endl;
-			 cout << pchMessage[0] << endl;
-			 break;
+			 if (!ReadFile(hNamedPipe,
+				 &pchMessage,
+				 sizeof(pchMessage),
+				 &dwBytesRead,
+				 NULL))
+			 {
+				 cerr << "Data reading from the named pipe failed." << endl
+					 << "The last error code: " << GetLastError() << endl;
+				 CloseHandle(hNamedPipe);
+				 break;
+			 }
+			 else if (pchMessage[0] == 48) //команда закончить работу
+			 {
+				 break;
+			 }
+
 		 }
 		 vector <BrainWaves> tmp = epoc->measuring();
 		 SYSTEMTIME st;
+
 		 GetLocalTime(&st);
-		 string ms = to_string((double)st.wMilliseconds / 1000);
-		 ms = ms.substr(2, 3);
-		 times.push_back(to_string(st.wYear) + "-" + to_string(st.wMonth) + "-" + to_string(st.wDay) + "." +
-			 to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + ms);
+
+		 CString cstrMessage;
+		 string time;
+
+		 cstrMessage.Format("%d-%02d-%02d.%02d_%02d_%02d.%03d",
+			 st.wYear,
+			 st.wMonth,
+			 st.wDay,
+			 st.wHour,
+			 st.wMinute,
+			 st.wSecond,
+			 st.wMilliseconds);
+
+		 time = cstrMessage;
+
+		 times.push_back(time);
 		 dataEEG.insert(dataEEG.end(), tmp.begin(), tmp.end()); //15 каналов, в каждом 5 ритмов
 		 Sleep(1000/90);
 	 }

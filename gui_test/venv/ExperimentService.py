@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import os
 import json
+from shutil import rmtree
 from Recorder import Recorder
 from ImageProcessor import ImageProcessor
 from EmotionAnalyzer import EmotionAnalyzer
@@ -28,14 +29,20 @@ class ExperimentService:
             os.mkdir(self.folder + '\\' + self.experiment.name)  #надо удалять если ошибка или создавать только после сигнала об
         try:
             self.recorder.start([self.experiment.name, self.folder + '\\' + self.experiment.name])
-        except ValueError:
+        except FileNotFoundError:
             return ExperimentError.INCORRECT_DB
+
+    def check_process(self):
+        if self.recorder.check_process():
+            return ExperimentError.OK
+        else:
+            return ExperimentError.LOST_PROCESS
 
     def stop_record(self):
         self.recorder.stop()
         try:
             self.experimentDao.save_experiment(self.experiment)
-        except ValueError:
+        except FileNotFoundError:
             return ExperimentError.INCORRECT_DB
         self.experiment = None
         return ExperimentError.OK    # ошибки закрытия процессов
@@ -73,11 +80,14 @@ class ExperimentService:
             self.photos.append([photo, time])
 
     def prepare_brain_waves(self):
+        self.brain_waves.clear()
         # DB - папка с экспериментом - файл с мозговыми волнами
         brain_waves_strings = DataManager.read_file(self.folder + '\\' + self.experiment.name
                                                     + '\\' + self.experiment.name + '.tsv')
+
         for line in brain_waves_strings:
             self.brain_waves.append(line.rsplit('\t', -1))
+
         self.brain_waves = self.brain_waves[1:]
         return len(self.brain_waves) != 0
 
@@ -99,10 +109,10 @@ class ExperimentService:
         return no_face
 
     def make_dataset(self, dataset):
-        print(dataset[0][-1])
-        print(self.emotions[0][-1])
-        print((datetime.strptime(dataset[0][-1], "%Y-%m-%d.%H_%M_%S.%f") - \
-        datetime.strptime(self.emotions[0][-1], "%Y-%m-%d.%H_%M_%S.%f")).microseconds)
+        #print(dataset[0][-1])
+        #print(self.emotions[0][-1])
+        #print((datetime.strptime(dataset[0][-1], "%Y-%m-%d.%H_%M_%S.%f") - \
+        #datetime.strptime(self.emotions[0][-1], "%Y-%m-%d.%H_%M_%S.%f")).microseconds)
         count_waves = 0
         count_emotions = 0
         while count_waves < len(dataset) and count_emotions < len(self.emotions):
@@ -132,11 +142,14 @@ class ExperimentService:
         else:
             return ExperimentError.INCORRECT_DB
 
-        if not self.prepare_brain_waves():
-            return ExperimentError.NO_BRAIN_WAVES
-        self.prepare_photos()
-        if self.prepare_emotions():
-            return ExperimentError.NO_FACE
+        try:
+            if not self.prepare_brain_waves():
+                return ExperimentError.NO_BRAIN_WAVES
+            self.prepare_photos()
+            if self.prepare_emotions():
+                return ExperimentError.NO_FACE
+        except FileNotFoundError:
+            return ExperimentError.INCORRECT_DB
 
         self.make_dataset(self.match_data())
         # DB - папка с экспериментом - конечный файл результатов этого экспермента
@@ -146,6 +159,10 @@ class ExperimentService:
         # теперь обновим запись эксперимента в базе данных
         self.update_experiment(self.experiment)
 
+        self.experiment = None
+        self.brain_waves.clear()
+        self.photos.clear()
+        self.emotions.clear()
         return ExperimentError.OK
 
     def get_experiments(self):
@@ -172,48 +189,41 @@ class ExperimentService:
         return ExperimentError.OK
 
     def delete_experiment(self,  name):
-        # сначала удаляем все из папки
-        photos = []
+        error_code = ExperimentError.OK
         try:
-            if os.path.exists(self.folder + '\\' + name + '\\' + 'photos_log.txt'):
-                photos = DataManager.read_file(self.folder + '\\' + name + '\\'
-                                               + 'photos_log.txt')
-                os.remove(self.folder + '\\' + name + '\\' + 'photos_log.txt')
-
-            for p in photos:
-                if os.path.exists(p):
-                    os.remove(p)
-
-            if os.path.exists(self.folder + '\\' + name + '\\' + name + '.tsv'):
-                os.remove(self.folder + '\\' + name + '\\' + name + '.tsv')
-
-            if os.path.exists(self.folder + '\\' + name + '\\' + 'res_' + name + '.tsv'):
-                os.remove(self.folder + '\\' + name + '\\' + 'res_' + name + '.tsv')
-
+            # сначала удаляем все из папки
+            rmtree(self.folder + '\\' + name)
             # потом удаляем саму папку
             if os.path.exists(self.folder + '\\' + name):
                 os.rmdir(self.folder + '\\' + name)
         except PermissionError:
-            return ExperimentError.PERMISSION_ERROR
+            error_code = ExperimentError.PERMISSION_ERROR
         except FileNotFoundError:
-            return ExperimentError.INCORRECT_DB
+            error_code = ExperimentError.INCORRECT_DB
 
         # потом удаляем из базы данных
         try:
             self.experimentDao.delete_experiment(name)
         except (json.decoder.JSONDecodeError, FileNotFoundError):
-            return ExperimentError.INCORRECT_DB
-        return ExperimentError.OK
+            error_code = ExperimentError.INCORRECT_DB
+        return error_code
 
     def include_in_dataset(self, name):
         self.experiment = self.experimentDao.get_experiment(name)
-        dataset = DataManager.read_file_str(self.folder + '\\' + self.experiment.name +
+        try:
+            dataset = DataManager.read_file_str(self.folder + '\\' + self.experiment.name +
                               '\\' + 'res_' + self.experiment.name + '.tsv')
+        except FileNotFoundError:
+            return ExperimentError.INCORRECT_DB
         dataset = dataset[1:]
-        DataManager.add_to_file(self.folder + '\\' + 'result_dataset.tsv', dataset)
+        try:
+            DataManager.add_to_file(self.folder + '\\' + 'result_dataset.tsv', dataset)
+        except FileNotFoundError:
+            return ExperimentError.INCORRECT_DB
 
         self.experiment.is_included = 1
         self.experimentDao.update_experiment(self.experiment)
+        return ExperimentError.OK
 
 
 

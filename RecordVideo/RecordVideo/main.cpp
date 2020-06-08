@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <fstream>
+#include <atlstr.h>
 using namespace std;
 using namespace cv;
 
@@ -16,7 +17,7 @@ int  main(int argc, char* argv[])
 	int responseCode = 0;
 
 	SYSTEMTIME st;
-	VideoCapture cap(0); // open the default camera
+	
 
 	if (argc < 4)
 	{
@@ -28,20 +29,6 @@ int  main(int argc, char* argv[])
 	string experimentName(argv[2]);
 	char pipeName[50];
 	strcpy_s(pipeName, argv[1]);
-
-
-
-	if (!cap.isOpened())  // check if we succeeded
-	{
-		cout << "ERROR: There is no web-camera to connect!" << endl;
-		return -1;
-	}
-
-	//-- Выставляем параметры камеры ширину и высоту кадра в пикселях
-	cap.set(CAP_PROP_FRAME_WIDTH, 1280);
-	cap.set(CAP_PROP_FRAME_HEIGHT, 960);
-
-	Mat frame;
 
 	// создаем именованный канал для чтения и записи
 	hNamedPipe = CreateNamedPipe(
@@ -66,7 +53,7 @@ int  main(int argc, char* argv[])
 	}
 
 	// ждем, пока клиент свяжется с каналом
-	cout << "The server is waiting for connection with a client." << endl;
+	cout << "The record video process is waiting for connection with a EEGToeEmotionTool." << endl;
 	if (!ConnectNamedPipe(
 		hNamedPipe,    // дескриптор канала
 		NULL      // связь синхронная
@@ -81,41 +68,80 @@ int  main(int argc, char* argv[])
 		return 0;
 	}
 
+	VideoCapture cap(0); // open the default camera
+
+	if (!cap.isOpened())  // check if we succeeded
+	{
+		cout << "ERROR: There is no web-camera to connect!" << endl;
+		CloseHandle(hNamedPipe);
+		return -1;
+	}
+
+	//-- Выставляем параметры камеры ширину и высоту кадра в пикселях
+	cap.set(CAP_PROP_FRAME_WIDTH, 1280);
+	cap.set(CAP_PROP_FRAME_HEIGHT, 960);
+
+	Mat frame;
 
 	DWORD   dwBytesRead = 0;     // для количества прочитанных байтов
 	DWORD   dwBytesAvail = 0;    // для количества доступных байтов
 	DWORD   dwBytesLeft = 0;    // для количества оставшихся байтов
+	OVERLAPPED gOverlapped;
 
 	vector<string> photos;
 	while (true)
 	{
-		if (!PeekNamedPipe(
+		if (PeekNamedPipe(
 			hNamedPipe,
 			pchMessage,
 			sizeof(pchMessage),
 			&dwBytesRead,
 			&dwBytesAvail,
 			&dwBytesLeft)
-			&& pchMessage[0] != 0)
+			&& pchMessage[0] != '\0')
 		{
-			cerr << "Data reading from the named pipe failed." << endl
-			<< "The last error code: " << GetLastError() << endl;
-			CloseHandle(hNamedPipe);
-		}
-		else if(pchMessage[0] != '\0') //команда закончить работу
-		{
-			// выводим полученное от клиента сообщение на консоль
-			cout << "The server received the message from a client: " << endl;
-			cout << pchMessage[0] << endl;
-			break;
+			if (!ReadFile(hNamedPipe,
+				&pchMessage,
+				sizeof(pchMessage),
+				&dwBytesRead,
+				NULL))
+			{
+				cerr << "Data reading from the named pipe failed." << endl
+					<< "The last error code: " << GetLastError() << endl;
+				CloseHandle(hNamedPipe);
+				break;
+			}
+			else if (pchMessage[0] == 48) //команда закончить работу
+			{
+				break;
+			}
+
 		}
 
+		if (!cap.isOpened())  // check if we succeeded
+		{
+			cout << "ERROR: There is no web-camera to connect!" << endl;
+			CloseHandle(hNamedPipe);
+			return -1;
+		}
+		
 		cap >> frame; //-- захватываем очередной кадр
 		GetLocalTime(&st);
-		string ms = to_string((double)st.wMilliseconds / 1000);
-		ms = ms.substr(2, 3);
-		string filename = to_string(st.wYear) + "-" + to_string(st.wMonth) + "-" + to_string(st.wDay) + "." +
-			to_string(st.wHour) + "_" + to_string(st.wMinute) + "_" + to_string(st.wSecond) + "." + ms + ".jpeg";
+		
+		CString cstrMessage;
+		string filename;
+
+		cstrMessage.Format("%d-%02d-%02d.%02d_%02d_%02d.%03d",
+			st.wYear,
+			st.wMonth,
+			st.wDay,
+			st.wHour,
+			st.wMinute,
+			st.wSecond,
+			st.wMilliseconds);
+
+		filename = cstrMessage + ".jpeg";
+
 		string photo = experimentPath + '\\' + filename;
 		imwrite(photo, frame); //--cохраняем в файл
 		photos.push_back(photo);
@@ -126,6 +152,8 @@ int  main(int argc, char* argv[])
 	for (auto photo : photos)
 		out << photo << endl;
 	out.close();
+
+	cap.release();
 
 	// закрываем дескриптор канала 
 	CloseHandle(hNamedPipe);
